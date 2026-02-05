@@ -198,12 +198,16 @@
         function listenToGame() {
             const stateRef = doc(db, "artifacts/default/public/data/active/state");
             
-            onSnapshot(stateRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    handleGameStateChange(data);
-                }
-            });
+           onSnapshot(stateRef, (docSnap) => {
+  if (!docSnap.exists()) {
+    // ADMIN HENÜZ AÇMAMIŞ
+    showScreen('waiting');
+    activeGameState = null;
+    return;
+  }
+
+  handleGameStateChange(docSnap.data());
+});
         }
 
         // --- OYUN DURUMU YÖNETİMİ ---
@@ -511,4 +515,5 @@
         }
     </script>
 </body>
+
 </html>
