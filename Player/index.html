@@ -1,519 +1,108 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-    <meta charset="UTF-8">
-    <title>Oyuncu Paneli - Güvenli Giriş</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; background: #0f172a; color: white; }
-        .glass-panel { background: rgba(30, 41, 59, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        .hidden { display: none !important; }
-        .tab-btn { transition: all 0.3s ease; border-bottom: 2px solid transparent; opacity: 0.6; }
-        .tab-btn.active { border-color: #38bdf8; opacity: 1; color: #38bdf8; }
-        
-        /* Animasyonlar */
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
-    </style>
+  <meta charset="UTF-8" />
+  <title>Player Panel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden">
+<body class="bg-slate-900 text-white flex items-center justify-center min-h-screen">
 
-    <!-- Arkaplan Efektleri -->
-    <div class="absolute top-0 left-0 w-full h-full -z-10">
-        <div class="absolute top-10 left-10 w-64 h-64 bg-purple-600 rounded-full blur-[100px] opacity-20"></div>
-        <div class="absolute bottom-10 right-10 w-64 h-64 bg-blue-600 rounded-full blur-[100px] opacity-20"></div>
-    </div>
+<div id="app" class="w-full max-w-md p-6 bg-slate-800 rounded-xl text-center">
+  <h1 class="text-2xl font-bold mb-4">Oyuncu Paneli</h1>
 
-    <!-- 1. BEKLEME EKRANI (Oyun Kapalıysa) -->
-    <div id="waiting-screen" class="glass-panel p-8 rounded-2xl text-center max-w-md w-full">
-        <div class="animate-pulse mb-4">
-            <i class="fa-solid fa-hourglass-half text-4xl text-slate-500"></i>
-        </div>
-        <h2 class="text-xl font-bold text-slate-300">Yönetici Bekleniyor...</h2>
-        <p class="text-sm text-slate-500 mt-2">Şu an aktif bir oyun yok. Lütfen bekleyin.</p>
-    </div>
+  <div id="status" class="text-slate-400 mb-4">
+    Bağlanıyor...
+  </div>
 
-    <!-- 2. ANA EKRAN (Oyun Açıksa) -->
-    <div id="join-screen" class="glass-panel p-6 rounded-2xl max-w-md w-full hidden flex flex-col gap-4">
-        
-        <!-- Üst Başlık -->
-        <div class="text-center">
-            <h2 id="game-title" class="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-purple-400 uppercase">OYUN AKTİF</h2>
-            <p class="text-xs text-slate-400 mt-1">Katılmak için giriş yapmalısın</p>
-        </div>
+  <div id="register" class="hidden space-y-3">
+    <input id="nick" placeholder="Nick" class="w-full p-3 rounded bg-slate-700" />
+    <button id="joinBtn" class="w-full bg-green-600 py-3 rounded font-bold">
+      Katıl
+    </button>
+  </div>
 
-        <!-- AUTH SİSTEMİ (Giriş Yapılmamışsa Görünür) -->
-        <div id="auth-container" class="fade-in">
-            <!-- Sekmeler -->
-            <div class="flex justify-between border-b border-slate-700 mb-4 pb-2">
-                <button onclick="switchTab('login')" id="tab-login" class="tab-btn active text-sm font-bold uppercase pb-2 w-1/3">Giriş</button>
-                <button onclick="switchTab('register')" id="tab-register" class="tab-btn text-sm font-bold uppercase pb-2 w-1/3">Kayıt Ol</button>
-                <button onclick="switchTab('edit')" id="tab-edit" class="tab-btn text-sm font-bold uppercase pb-2 w-1/3">Düzenle</button>
-            </div>
+  <div id="success" class="hidden text-green-400 font-bold">
+    Katılım alındı ✔
+  </div>
+</div>
 
-            <!-- TAB 1: GİRİŞ YAP -->
-            <div id="view-login" class="space-y-3">
-                <div>
-                    <label class="text-xs font-bold text-slate-400 uppercase ml-1">Kullanıcı Adı (Nick)</label>
-                    <input type="text" id="login-nick" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-sky-500 outline-none transition" placeholder="Nickiniz...">
-                </div>
-                <div>
-                    <label class="text-xs font-bold text-slate-400 uppercase ml-1">Şifre (6 Haneli PIN)</label>
-                    <input type="password" id="login-pin" maxlength="6" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-sky-500 outline-none transition tracking-widest" placeholder="******">
-                </div>
-                <button onclick="handleLogin()" class="w-full bg-sky-600 hover:bg-sky-500 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-sky-900/40">
-                    GİRİŞ YAP
-                </button>
-            </div>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+  import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-            <!-- TAB 2: KAYIT OL -->
-            <div id="view-register" class="space-y-3 hidden">
-                <div>
-                    <label class="text-xs font-bold text-slate-400 uppercase ml-1">Kullanıcı Adı Seç</label>
-                    <input type="text" id="reg-nick" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-green-500 outline-none transition" placeholder="Yeni Nick...">
-                </div>
-                <div class="flex gap-2">
-                    <div class="w-1/2">
-                        <label class="text-xs font-bold text-slate-400 uppercase ml-1">Irk Seç</label>
-                        <select id="reg-race" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-green-500 outline-none transition cursor-pointer">
-                            <option value="human">İnsan</option>
-                            <option value="magmar">Magmar</option>
-                        </select>
-                    </div>
-                    <div class="w-1/2">
-                        <label class="text-xs font-bold text-slate-400 uppercase ml-1">Şifre Belirle</label>
-                        <input type="text" id="reg-pin" maxlength="6" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-green-500 outline-none transition tracking-widest text-center" placeholder="6 Rakam">
-                    </div>
-                </div>
-                <p class="text-[10px] text-slate-500 italic">*Şifrenizi unutmayın, giriş için gereklidir.</p>
-                <button onclick="handleRegister()" class="w-full bg-green-600 hover:bg-green-500 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-green-900/40">
-                    KAYDI TAMAMLA
-                </button>
-            </div>
+  // 🔥 AYNI FIREBASE (ADMIN İLE AYNI)
+  const firebaseConfig = {
+    apiKey: "AIzaSyA4yI7eN3DF-Kt4HSuwt6hpZzI4Z8s2PN0",
+    authDomain: "dwar-etkinlik-merkezi-15d51.firebaseapp.com",
+    projectId: "dwar-etkinlik-merkezi-15d51",
+    storageBucket: "dwar-etkinlik-merkezi-15d51.firebasestorage.app",
+    messagingSenderId: "262902378690",
+    appId: "1:262902378690:web:76a68a16e0d9e6c5e44b5b"
+  };
 
-            <!-- TAB 3: DÜZENLE -->
-            <div id="view-edit" class="space-y-3 hidden">
-                <div id="edit-auth-step">
-                    <p class="text-xs text-yellow-500 mb-2">Güvenlik için önce mevcut bilgilerinizi girin:</p>
-                    <input type="text" id="edit-old-nick" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white mb-2" placeholder="Mevcut Nick">
-                    <input type="password" id="edit-old-pin" maxlength="6" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white mb-2 tracking-widest" placeholder="Mevcut Şifre">
-                    <button onclick="verifyForEdit()" class="w-full bg-slate-700 hover:bg-slate-600 py-2 rounded-xl text-sm font-bold">Doğrula</button>
-                </div>
-                
-                <div id="edit-form-step" class="hidden space-y-3 border-t border-slate-700 pt-3 mt-2">
-                    <p class="text-xs text-green-400">Doğrulandı! Yeni bilgileri girin:</p>
-                    <input type="text" id="edit-new-nick" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-yellow-500" placeholder="Yeni Nick (Opsiyonel)">
-                    <div class="flex gap-2">
-                         <select id="edit-new-race" class="w-1/2 bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-yellow-500">
-                            <option value="human">İnsan</option>
-                            <option value="magmar">Magmar</option>
-                        </select>
-                        <input type="text" id="edit-new-pin" maxlength="6" class="w-1/2 bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:border-yellow-500 text-center tracking-widest" placeholder="Yeni Şifre">
-                    </div>
-                    <button onclick="submitEdit()" class="w-full bg-yellow-600 hover:bg-yellow-500 text-white py-3 rounded-xl font-bold shadow-lg shadow-yellow-900/40">GÜNCELLE</button>
-                </div>
-            </div>
-        </div>
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
 
-        <!-- OYUN KATILIM FORMU (Giriş Yapılınca Görünür) -->
-        <div id="game-input-container" class="hidden fade-in border-t border-slate-700 pt-4">
-            <div class="flex items-center justify-between mb-4 bg-slate-800/50 p-3 rounded-lg">
-                <div class="flex items-center gap-3">
-                    <div id="profile-race-icon" class="w-10 h-10 rounded-full flex items-center justify-center bg-slate-700 text-xl">
-                        👤
-                    </div>
-                    <div>
-                        <p id="profile-display-nick" class="font-bold text-white text-sm">Oyuncu</p>
-                        <p id="profile-display-race" class="text-xs text-slate-400">Irk</p>
-                    </div>
-                </div>
-                <button onclick="logout()" class="text-xs text-red-400 hover:text-red-300 underline">Çıkış</button>
-            </div>
+  const statusEl = document.getElementById("status");
+  const registerEl = document.getElementById("register");
+  const successEl = document.getElementById("success");
+  const joinBtn = document.getElementById("joinBtn");
+  const nickInput = document.getElementById("nick");
 
-            <div id="extra-input-area" class="hidden mb-4">
-                <label id="extra-label" class="text-xs font-bold text-yellow-500 uppercase ml-1">Tahmin</label>
-                <input type="text" id="extra-input" class="w-full bg-slate-800 border border-yellow-600/50 rounded-xl p-3 text-white focus:border-yellow-500 outline-none transition" placeholder="...">
-                <p id="extra-hint" class="text-[10px] text-slate-500 mt-1 italic"></p>
-            </div>
+  let currentUser = null;
+  let activeState = null;
 
-            <button id="join-btn" onclick="submitEntry()" class="w-full bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 py-4 rounded-xl font-bold uppercase tracking-widest transition transform active:scale-95 shadow-lg shadow-sky-900/50">
-                Oyuna Katıl
-            </button>
-        </div>
-    </div>
+  // 🔐 ANON LOGIN
+  signInAnonymously(auth).then((cred) => {
+    currentUser = cred.user;
+    listenState();
+  });
 
-    <!-- 3. BAŞARI EKRANI -->
-    <div id="success-screen" class="glass-panel p-8 rounded-2xl text-center max-w-md w-full hidden">
-        <div class="w-16 h-16 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-500/50">
-            <i class="fa-solid fa-check text-2xl"></i>
-        </div>
-        <h2 class="text-2xl font-bold text-white">Kaydın Alındı!</h2>
-        <p class="text-slate-400 text-sm mt-2">Başarıyla katılım sağladın.</p>
-        <p class="text-xs text-slate-600 mt-6">Yeni tur başladığında ekran otomatik yenilenir.</p>
-    </div>
+  // 👂 ADMIN STATE DİNLE
+  function listenState() {
+    const stateRef = doc(db, "artifacts", "default", "public", "data", "active", "state");
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    onSnapshot(stateRef, (snap) => {
+      if (!snap.exists()) {
+        statusEl.innerText = "⏳ Yönetici henüz oyun açmadı";
+        registerEl.classList.add("hidden");
+        return;
+      }
 
-        // FIREBASE CONFIG
-        const firebaseConfig = {
-            apiKey: "AIzaSyA4yI7eN3DF-Kt4HSuwt6hpZzI4Z8s2PN0",
-            authDomain: "dwar-etkinlik-merkezi-15d51.firebaseapp.com",
-            projectId: "dwar-etkinlik-merkezi-15d51",
-            storageBucket: "dwar-etkinlik-merkezi-15d51.firebasestorage.app",
-            messagingSenderId: "262902378690",
-            appId: "1:262902378690:web:76a68a16e0d9e6c5e44b5b"
-        };
+      activeState = snap.data();
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+      if (activeState.status !== "open") {
+        statusEl.innerText = "⛔ Oyun kapalı";
+        registerEl.classList.add("hidden");
+        return;
+      }
 
-        // Değişkenler
-        let currentUser = null; // Firebase Auth User
-        let activeGameState = null;
-        let loggedInPlayer = null; // Bizim sistemimizdeki {nick, race, pin}
-        let hasJoinedCurrentRound = false;
-
-        // --- BAŞLANGIÇ ---
-        signInAnonymously(auth).then((cred) => {
-            currentUser = cred.user;
-            // LocalStorage'dan oturum kontrolü
-            const savedSession = localStorage.getItem('dwar_player_session');
-            if(savedSession) {
-                try {
-                    loggedInPlayer = JSON.parse(savedSession);
-                    // UI'ı güncelle
-                    updateProfileUI();
-                } catch(e) { localStorage.removeItem('dwar_player_session'); }
-            }
-            listenToGame(); 
-        });
-
-        // --- OYUN DİNLEME ---
-        function listenToGame() {
-            const stateRef = doc(db, "artifacts/default/public/data/active/state");
-            
-           onSnapshot(stateRef, (docSnap) => {
-  if (!docSnap.exists()) {
-    // ADMIN HENÜZ AÇMAMIŞ
-    showScreen('waiting');
-    activeGameState = null;
-    return;
+      statusEl.innerText = "🟢 Oyun açık, katılabilirsin";
+      registerEl.classList.remove("hidden");
+    });
   }
 
-  handleGameStateChange(docSnap.data());
-});
-        }
+  // ✍️ KATILIM
+  joinBtn.onclick = async () => {
+    const nick = nickInput.value.trim();
+    if (!nick) return alert("Nick gir");
 
-        // --- OYUN DURUMU YÖNETİMİ ---
-        function handleGameStateChange(newState) {
-            // Yeni Tur Kontrolü
-            if (activeGameState && activeGameState.round !== newState.round) {
-                hasJoinedCurrentRound = false;
-                document.getElementById('extra-input').value = "";
-                showScreen('join'); // Başarı ekranından join ekranına geri at
-            }
+    await setDoc(
+      doc(db, "artifacts", "default", "public", "data", "entries", `${activeState.round}_${nick}`),
+      {
+        nick,
+        round: activeState.round,
+        time: Date.now()
+      }
+    );
 
-            activeGameState = newState;
-
-            // Oyun Kapalı mı?
-            if (newState.status !== 'open') {
-                showScreen('waiting');
-                return;
-            }
-
-            // Zaten katıldı mı?
-            if (hasJoinedCurrentRound) {
-                showScreen('success');
-                return;
-            }
-
-            // Oyun Açık -> Join Ekranı
-            showScreen('join');
-            setupFormForGame(newState.game);
-
-            // Eğer giriş yapmışsa direk oyun formunu göster, yoksa auth formunu
-            if(loggedInPlayer) {
-                document.getElementById('auth-container').classList.add('hidden');
-                document.getElementById('game-input-container').classList.remove('hidden');
-            } else {
-                document.getElementById('auth-container').classList.remove('hidden');
-                document.getElementById('game-input-container').classList.add('hidden');
-            }
-        }
-
-        // --- AUTH: GİRİŞ YAP ---
-        window.handleLogin = async () => {
-            const nick = document.getElementById('login-nick').value.trim();
-            const pin = document.getElementById('login-pin').value.trim();
-
-            if(!nick || !pin) return alert("Lütfen nick ve şifre girin.");
-
-            // Firestore'dan kontrol et
-            try {
-                const profileRef = doc(db, "artifacts", "default", "public", "data", "player_profiles", nick);
-                const docSnap = await getDoc(profileRef);
-
-                if (!docSnap.exists()) {
-                    alert("Bu nick ile kayıt bulunamadı. Lütfen önce kayıt olun.");
-                    switchTab('register');
-                    document.getElementById('reg-nick').value = nick; // Kolaylık olsun
-                    return;
-                }
-
-                const data = docSnap.data();
-                if (data.pin !== pin) {
-                    alert("Hatalı şifre!");
-                    return;
-                }
-
-                // Giriş Başarılı
-                loginSuccess(nick, data.race, pin);
-
-            } catch (error) {
-                console.error(error);
-                alert("Giriş hatası: " + error.message);
-            }
-        };
-
-        // --- AUTH: KAYIT OL ---
-        window.handleRegister = async () => {
-            const nick = document.getElementById('reg-nick').value.trim();
-            const race = document.getElementById('reg-race').value;
-            const pin = document.getElementById('reg-pin').value.trim();
-
-            if(!nick) return alert("Nick gerekli.");
-            if(!pin || pin.length !== 6 || isNaN(pin)) return alert("Şifre 6 haneli bir sayı olmalıdır.");
-
-            try {
-                const profileRef = doc(db, "artifacts", "default", "public", "data", "player_profiles", nick);
-                const docSnap = await getDoc(profileRef);
-
-                if (docSnap.exists()) {
-                    alert("Bu nick zaten alınmış! Başka bir nick seçin veya giriş yapın.");
-                    return;
-                }
-
-                // Kaydı oluştur
-                await setDoc(profileRef, {
-                    nick: nick,
-                    race: race,
-                    pin: pin,
-                    createdAt: new Date().toISOString(),
-                    uid: currentUser.uid // Güvenlik için bağlayabiliriz
-                });
-
-                alert("Kayıt başarılı! Giriş yapıldı.");
-                loginSuccess(nick, race, pin);
-
-            } catch (error) {
-                console.error(error);
-                alert("Kayıt hatası: " + error.message);
-            }
-        };
-
-        // --- AUTH: DÜZENLEME (Verification) ---
-        let editCurrentNick = "";
-        window.verifyForEdit = async () => {
-            const nick = document.getElementById('edit-old-nick').value.trim();
-            const pin = document.getElementById('edit-old-pin').value.trim();
-
-            if(!nick || !pin) return alert("Bilgileri doldurun.");
-
-            try {
-                const profileRef = doc(db, "artifacts", "default", "public", "data", "player_profiles", nick);
-                const docSnap = await getDoc(profileRef);
-
-                if (!docSnap.exists() || docSnap.data().pin !== pin) {
-                    alert("Bilgiler hatalı veya kullanıcı yok.");
-                    return;
-                }
-
-                // Doğrulandı
-                editCurrentNick = nick;
-                document.getElementById('edit-auth-step').classList.add('hidden');
-                document.getElementById('edit-form-step').classList.remove('hidden');
-                
-                // Mevcut değerleri doldur
-                document.getElementById('edit-new-nick').value = nick;
-                document.getElementById('edit-new-race').value = docSnap.data().race;
-                document.getElementById('edit-new-pin').value = pin;
-
-            } catch(e) {
-                alert("Hata: " + e.message);
-            }
-        };
-
-        // --- AUTH: DÜZENLEME (Submit) ---
-        window.submitEdit = async () => {
-            const newNick = document.getElementById('edit-new-nick').value.trim();
-            const newRace = document.getElementById('edit-new-race').value;
-            const newPin = document.getElementById('edit-new-pin').value.trim();
-
-            if(!newNick || !newPin || newPin.length !== 6) return alert("Geçerli bilgiler girin.");
-
-            try {
-                // Eğer nick değiştiyse, eskiyi sil yeniyi oluştur yapmamız lazım (Firestore Doc ID değişiyor)
-                // Basitlik için sadece aynı nick ise update, farklı ise kontrol et diyelim.
-                
-                if (newNick !== editCurrentNick) {
-                    // Nick değişiyor
-                    const newRef = doc(db, "artifacts", "default", "public", "data", "player_profiles", newNick);
-                    const check = await getDoc(newRef);
-                    if(check.exists()) return alert("Yeni seçtiğiniz nick zaten kullanımda.");
-
-                    // Yeni oluştur
-                    await setDoc(newRef, { nick: newNick, race: newRace, pin: newPin, uid: currentUser.uid });
-                    // Eskiyi istersen sil (opsiyonel, burada silmiyoruz belki veri kaybı olmasın diye ama normalde silinir)
-                    
-                    alert("Bilgiler güncellendi! Lütfen yeni bilgilerle giriş yapın.");
-                    location.reload(); // Sayfayı yenile temiz başlasın
-                } else {
-                    // Sadece data update
-                    const profileRef = doc(db, "artifacts", "default", "public", "data", "player_profiles", editCurrentNick);
-                    await updateDoc(profileRef, {
-                        race: newRace,
-                        pin: newPin
-                    });
-                    alert("Bilgiler güncellendi!");
-                    // Login state güncelle
-                    loginSuccess(newNick, newRace, newPin);
-                    switchTab('login'); // Geri dön
-                }
-
-            } catch(e) {
-                alert("Hata: " + e.message);
-            }
-        };
-
-        // --- YARDIMCI FONKSİYONLAR ---
-        function loginSuccess(nick, race, pin) {
-            loggedInPlayer = { nick, race, pin };
-            localStorage.setItem('dwar_player_session', JSON.stringify(loggedInPlayer));
-            
-            updateProfileUI();
-
-            // Ekran geçişi
-            document.getElementById('auth-container').classList.add('hidden');
-            document.getElementById('game-input-container').classList.remove('hidden');
-        }
-
-        function updateProfileUI() {
-            if(!loggedInPlayer) return;
-            document.getElementById('profile-display-nick').innerText = loggedInPlayer.nick;
-            document.getElementById('profile-display-race').innerText = loggedInPlayer.race === 'human' ? 'İnsan' : 'Magmar';
-            
-            const iconEl = document.getElementById('profile-race-icon');
-            if(loggedInPlayer.race === 'magmar') {
-                iconEl.innerHTML = '<i class="fa-solid fa-fire text-red-500"></i>';
-                iconEl.className = "w-10 h-10 rounded-full flex items-center justify-center bg-red-900/30 border border-red-500/30 text-xl";
-            } else {
-                iconEl.innerHTML = '<i class="fa-solid fa-user-shield text-blue-400"></i>';
-                iconEl.className = "w-10 h-10 rounded-full flex items-center justify-center bg-blue-900/30 border border-blue-500/30 text-xl";
-            }
-        }
-
-        window.logout = () => {
-            localStorage.removeItem('dwar_player_session');
-            loggedInPlayer = null;
-            location.reload();
-        };
-
-        window.switchTab = (tabName) => {
-            // Buton stilleri
-            ['login', 'register', 'edit'].forEach(t => {
-                document.getElementById(`tab-${t}`).classList.remove('active');
-                document.getElementById(`view-${t}`).classList.add('hidden');
-            });
-            
-            document.getElementById(`tab-${tabName}`).classList.add('active');
-            document.getElementById(`view-${tabName}`).classList.remove('hidden');
-        };
-
-        // --- OYUNA KATILMA İŞLEMİ ---
-        window.submitEntry = async () => {
-            if (!loggedInPlayer) return alert("Oturum süresi dolmuş, lütfen tekrar giriş yapın.");
-
-            const extra = document.getElementById('extra-input').value.trim();
-
-            // Oyun türü kontrolleri
-            if (activeGameState.game === 'lucky' && !extra) return alert("Lütfen şanslı numaralarınızı girin!");
-            if (activeGameState.game === 'dice' && !extra) return alert("Lütfen zar tahmininizi girin!");
-
-            const btn = document.getElementById('join-btn');
-            btn.innerText = "GÖNDERİLİYOR...";
-            btn.disabled = true;
-
-            try {
-                const entryRef = doc(db, "artifacts", "default", "public", "data", "entries", currentUser.uid);
-
-                await setDoc(entryRef, {
-                    nick: loggedInPlayer.nick, // Profilden gelen nick
-                    race: loggedInPlayer.race, // Profilden gelen ırk
-                    game: activeGameState.game,
-                    round: activeGameState.round,
-                    prediction: extra,
-                    timestamp: new Date().toISOString()
-                });
-
-                hasJoinedCurrentRound = true;
-                showScreen('success');
-
-            } catch (error) {
-                console.error("Hata:", error);
-                alert("Bir hata oluştu: " + error.message);
-            } finally {
-                btn.innerText = "OYUNA KATIL";
-                btn.disabled = false;
-            }
-        };
-
-        // UI Form Ayarlamaları (Eski koddan korundu)
-        function setupFormForGame(gameType) {
-            const titleEl = document.getElementById('game-title');
-            const extraArea = document.getElementById('extra-input-area');
-            const extraLabel = document.getElementById('extra-label');
-            const extraInput = document.getElementById('extra-input');
-            const extraHint = document.getElementById('extra-hint');
-
-            extraArea.classList.add('hidden');
-
-            const titles = {
-                'game': "KUTU OYUNU",
-                'wheel': "ŞANSLI ÇARK",
-                'ticket': "BİLET OYUNU",
-                'mirror': "AYNA OYUNU",
-                'lucky': "ŞANS TOPU",
-                'dice': "ZAR OYUNU"
-            };
-            titleEl.innerText = titles[gameType] || "OYUN AKTİF";
-
-            if (gameType === 'lucky') {
-                extraArea.classList.remove('hidden');
-                extraLabel.innerText = "Şanslı Sayıların";
-                extraInput.placeholder = "Örn: 1-5-9";
-                extraHint.innerText = "3 adet rakam giriniz.";
-            } else if (gameType === 'dice') {
-                extraArea.classList.remove('hidden');
-                extraLabel.innerText = "Zar Toplamı Tahmini";
-                extraInput.placeholder = "Örn: 18";
-                extraHint.innerText = "Beklediğiniz toplam sayı.";
-            }
-        }
-
-        function showScreen(screenName) {
-            ['waiting-screen', 'join-screen', 'success-screen'].forEach(id => document.getElementById(id).classList.add('hidden'));
-            
-            if (screenName === 'waiting') document.getElementById('waiting-screen').classList.remove('hidden');
-            if (screenName === 'join') document.getElementById('join-screen').classList.remove('hidden');
-            if (screenName === 'success') document.getElementById('success-screen').classList.remove('hidden');
-        }
-    </script>
+    registerEl.classList.add("hidden");
+    successEl.classList.remove("hidden");
+    statusEl.innerText = "✅ Katıldın";
+  };
+</script>
 </body>
-
 </html>
